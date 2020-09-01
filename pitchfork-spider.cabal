@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f2d2056b3a3dbc726b3ab4ba5bdf93ead131508e8efeba173ad4b15d73cf81b4
+-- hash: 9ca0aca87ee119ad1d0efd3654b3270b341626815a1bc8b25ac72bf4fe194e8f
 
 name:           pitchfork-spider
 version:        0.1.0.0
@@ -42,6 +42,7 @@ library
     , scientific
     , string-qq
     , text
+    , vector
   default-language: Haskell2010
 
 executable pitchfork-spider-exe
@@ -61,6 +62,7 @@ executable pitchfork-spider-exe
     , scientific
     , string-qq
     , text
+    , vector
   default-language: Haskell2010
 
 test-suite pitchfork-spider-test
@@ -81,4 +83,5 @@ test-suite pitchfork-spider-test
     , scientific
     , string-qq
     , text
+    , vector
   default-language: Haskell2010

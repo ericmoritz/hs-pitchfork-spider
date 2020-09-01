@@ -28,6 +28,7 @@ dependencies:
 - scientific
 - bytestring
 - rio
+- vector
 
 library:
   source-dirs: src
