@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9ca0aca87ee119ad1d0efd3654b3270b341626815a1bc8b25ac72bf4fe194e8f
+-- hash: b2002cd4760f6c77d3860c91953db187ed6b96b4d71b083c89d84dd3f2237161
 
 name:           pitchfork-spider
 version:        0.1.0.0
@@ -38,8 +38,10 @@ library
     , base >=4.7 && <5
     , bytestring
     , hspec
+    , http-conduit
     , rio
     , scientific
+    , sort
     , string-qq
     , text
     , vector
@@ -57,9 +59,11 @@ executable pitchfork-spider-exe
     , base >=4.7 && <5
     , bytestring
     , hspec
+    , http-conduit
     , pitchfork-spider
     , rio
     , scientific
+    , sort
     , string-qq
     , text
     , vector
@@ -78,9 +82,11 @@ test-suite pitchfork-spider-test
     , base >=4.7 && <5
     , bytestring
     , hspec
+    , http-conduit
     , pitchfork-spider
     , rio
     , scientific
+    , sort
     , string-qq
     , text
     , vector

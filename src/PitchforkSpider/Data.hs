@@ -8,6 +8,7 @@
 -- | The data types for Pitchfork search api
 module PitchforkSpider.Data
   ( runTests,
+    Review (..),
   )
 where
 
@@ -31,6 +32,9 @@ data Review
       }
   deriving (Show, Eq, Generic)
 
+instance Ord Review where
+  compare x y = compare (rating x) (rating y)
+
 instance FromJSON Review where
   parseJSON = withObject "Review" $ \o -> do
     reviewId <- o .: "id"
@@ -45,7 +49,8 @@ instance FromJSON Review where
 
 parseRatingFromTombstoneAlbum :: Value -> Parser Scientific
 parseRatingFromTombstoneAlbum = withObject "album" $ \o -> do
-  ratingStr <- o .: "rating"
+  ratingStr <- o .: "rating" >>= (.: "rating")
+  -- TODO: read is probably no the best thing here
   case readMaybe ratingStr of
     Nothing -> fail "could not read rating"
     Just x -> return x
@@ -65,7 +70,7 @@ testReviewParser = hspec $ do
             }
   where
     album :: Value
-    album = object ["rating" .= String "5.4"]
+    album = object ["rating" .= object ["rating" .= String "5.4"]]
     fixture :: Value
     fixture =
       object
@@ -95,9 +100,9 @@ testParseRatingFromTombstoneAlbum = hspec $ do
       result `shouldBe` Left "Error in $: key \"rating\" not found"
   where
     fixtureWithValidRating :: Value
-    fixtureWithValidRating = object ["rating" .= String "5.4"]
+    fixtureWithValidRating = object ["rating" .= object ["rating" .= String "5.4"]]
     fixtureWithBadRating :: Value
-    fixtureWithBadRating = object ["rating" .= String "not a number"]
+    fixtureWithBadRating = object ["rating" .= object ["rating" .= String "not a number"]]
     fixtureWithoutRating :: Value
     fixtureWithoutRating = object []
 
