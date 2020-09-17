@@ -28,6 +28,7 @@ data Review
       { reviewId :: Text,
         url :: Text,
         title :: Text,
+        releaseYear :: Integer,
         rating :: Scientific
       }
   deriving (Show, Eq, Generic)
@@ -37,23 +38,41 @@ instance Ord Review where
 
 instance FromJSON Review where
   parseJSON = withObject "Review" $ \o -> do
-    reviewId <- o .: "id"
-    title <- o .: "socialTitle"
-    url <- ("https://pitchfork.com" <>) <$> (o .: "url")
-    albums <- o .: "tombstone" >>= (.: "albums")
-    ratings <- mapM parseRatingFromTombstoneAlbum albums
-    rating <- case ratings !? 0 of
-      Nothing -> fail "not rating found"
-      Just x -> return x
-    return Review {..}
+    tombstone <- parseTombstone o
+    Review
+      <$> reviewId o
+      <*> url o
+      <*> title o
+      <*> pure (tombReleaseYear tombstone)
+      <*> pure (tombRating tombstone)
+    where
+      reviewId = (.: "id")
+      url o = ("https://pitchfork.com" <>) <$> (o .: "url")
+      title = (.: "socialTitle")
+      parseTombstone o = do
+        albums <- o .: "tombstone" >>= (.: "albums")
+        tombstones <- mapM parseJSON albums
+        return $ maybe (TombstoneAlbum 0 0) id (tombstones !? 0)
 
-parseRatingFromTombstoneAlbum :: Value -> Parser Scientific
-parseRatingFromTombstoneAlbum = withObject "album" $ \o -> do
-  ratingStr <- o .: "rating" >>= (.: "rating")
-  -- TODO: read is probably no the best thing here
-  case readMaybe ratingStr of
-    Nothing -> fail "could not read rating"
-    Just x -> return x
+data TombstoneAlbum
+  = TombstoneAlbum
+      { tombReleaseYear :: Integer,
+        tombRating :: Scientific
+      }
+  deriving (Show, Eq)
+
+instance FromJSON TombstoneAlbum where
+  parseJSON = withObject "tombstone" $ \o ->
+    TombstoneAlbum
+      <$> (parseYear o <|> return 0)
+      <*> (parseRating o <|> return 0)
+    where
+      parseYear = (.: "album") >=> (.: "release_year")
+      parseRating o = do
+        ratingStr <- o .: "rating" >>= (.: "rating")
+        case readMaybe ratingStr of
+          Nothing -> fail $ "could not read rating: " ++ ratingStr
+          Just x -> return x
 
 testReviewParser :: IO ()
 testReviewParser = hspec $ do
@@ -66,6 +85,7 @@ testReviewParser = hspec $ do
               url =
                 "https://pitchfork.com/reviews/albums/the-front-bottoms-in-sickness-and-in-flames/",
               title = "The Front Bottoms: In Sickness & In Flames",
+              releaseYear = 0,
               rating = 5.4
             }
   where
@@ -83,30 +103,30 @@ testReviewParser = hspec $ do
     review :: Either String Review
     review = parseEither parseJSON fixture
 
-testParseRatingFromTombstoneAlbum :: IO ()
-testParseRatingFromTombstoneAlbum = hspec $ do
+testParseTombstoneAlbum :: IO ()
+testParseTombstoneAlbum = hspec $ do
   describe "parseRatingFromTombstoneAlbum" $ do
     it "should extract return the value if it is a valid numeric string" $ do
-      let result =
-            parseEither parseRatingFromTombstoneAlbum fixtureWithValidRating
-      result `shouldBe` Right 5.4
-    it "should extract return Nothing if the rating is invalid" $ do
-      let result =
-            parseEither parseRatingFromTombstoneAlbum fixtureWithBadRating
-      result `shouldBe` Left "Error in $: could not read rating"
-    it "should extract return Nothing if the rating key is missing" $ do
-      let result =
-            parseEither parseRatingFromTombstoneAlbum fixtureWithoutRating
-      result `shouldBe` Left "Error in $: key \"rating\" not found"
+      let fixture = object ["rating" .= object ["rating" .= String "5.4"], "album" .= object ["release_year" .= Number 2020]]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 2020 5.4)
+    it "should set the rating to 0 if it can't be read" $ do
+      let fixture = object ["rating" .= object ["rating" .= String "not a number"], "album" .= object ["release_year" .= Number 2020]]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 2020 0)
+    it "should set the rating to 0 if it is not found in inner object" $ do
+      let fixture = object ["rating" .= object [], "album" .= object ["release_year" .= Number 2020]]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 2020 0)
+    it "should set the rating to 0 if it is not found in root object" $ do
+      let fixture = object ["album" .= object ["release_year" .= Number 2020]]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 2020 0)
+    it "should set release year to 0 if release_year is missing on the album object" $ do
+      let fixture = object ["rating" .= object ["rating" .= String "5.4"], "album" .= object []]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 0 5.4)
+    it "should set release year to 0 if the album key is missing" $ do
+      let fixture = object ["rating" .= object ["rating" .= String "5.4"]]
+      parseEither parseJSON fixture `shouldBe` Right (TombstoneAlbum 0 5.4)
   where
-    fixtureWithValidRating :: Value
-    fixtureWithValidRating = object ["rating" .= object ["rating" .= String "5.4"]]
-    fixtureWithBadRating :: Value
-    fixtureWithBadRating = object ["rating" .= object ["rating" .= String "not a number"]]
-    fixtureWithoutRating :: Value
-    fixtureWithoutRating = object []
 
 runTests :: IO ()
 runTests = do
   testReviewParser
-  testParseRatingFromTombstoneAlbum
+  testParseTombstoneAlbum
